@@ -10,6 +10,7 @@
 
 extern crate chrono;
 extern crate regex;
+extern crate itertools;
 
 use std::fs::OpenOptions;
 use std::io::BufReader;
@@ -22,6 +23,8 @@ use chrono::*;
 use std::env;
 use std::fmt;
 use std::io::SeekFrom::End;
+use std::iter::Iterator;
+use itertools::Itertools;
 
 // FIXME: This is my first Rust program, so please forgive the current lack of error handling.
 // I just wanted to get something which compiled and ran *on my machine*.
@@ -103,7 +106,8 @@ fn main() {
        out.write_all(b"\n");
     }
 
-    if let Some(activity) = env::args().nth(1) {
+    let activity = env::args().skip(1).join(" ");
+    if (activity.len() > 0) {
         out.write_all(format!("{} {}\n", now.format("%H:%M"), activity).as_bytes());
     } else {
         // if there was no latest activity *and* there is no activity, then there's no point in writing a second blank line with just a time

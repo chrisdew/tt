@@ -6,3 +6,4 @@ authors = ["Chris Dew <chris@chrisdew.com>"]
 [dependencies]
 chrono = "0.2"
 regex = "0.1.41"
+itertools = "0.4"
