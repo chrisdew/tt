@@ -1,0 +1,15 @@
+2015-11-17
+
+20:13 regex matching of date and time/activity lines
+21:02
+
+
+2015-11-18
+
+12:52 regex matching of date and time/activity lines
+13:44
+
+
+2015-11-20
+
+13:12 #1 import existing code
