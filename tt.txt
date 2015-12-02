@@ -21,3 +21,4 @@
 
 12:44 fixing #3
 13:02
+13:07 #5 close the file properly

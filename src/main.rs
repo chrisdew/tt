@@ -114,5 +114,5 @@ fn main() {
         file.write_all(format!("{}\n", now.format("%H:%M")).as_bytes());
     }
 
-    // FIXME: we're just relying on the program exit to close the two file descriptors (which point at the same file).
+    // "file" is automatically closed as it goes out of scope at program end - very neat
 }
