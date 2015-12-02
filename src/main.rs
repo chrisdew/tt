@@ -35,7 +35,7 @@ fn main() {
     let filename = "tt.txt";
 
     // open a tt.txt file in the local directory
-    let file = OpenOptions::new()
+    let mut file = OpenOptions::new()
                .read(true)
                .write(true)
                .create(true)
@@ -45,54 +45,51 @@ fn main() {
     // now read the whole file to get the latest state
     let date_re = Regex::new(r"^(\d{4})-(\d{2})-(\d{2})").unwrap();
     let time_activity_re = Regex::new(r"^(\d{2}):(\d{2})\s*(.*)").unwrap();
-    let reader = BufReader::new(file);
     let mut latest_date : Option<Date<Local>> = None;
     let mut latest_datetime : Option<DateTime<Local>> = None;
     let mut latest_activity : Option<String> = None;
 
-    for wrapped_line in reader.lines() {
-        let line = wrapped_line.unwrap();
-        println!("line: {}", line);
+    // open a new scope so we can mutably lend the file to the reader
+    // but regain exclusive ownership after the scope is exited
+    // see: https://stackoverflow.com/questions/33831265/how-to-use-a-file-for-reading-and-writing
+    { 
+        let reader = BufReader::new(&mut file);
+        for wrapped_line in reader.lines() {
+            let line = wrapped_line.unwrap();
+            println!("line: {}", line);
 
-        if date_re.is_match(&line) {
-            let captures = date_re.captures(&line).unwrap();
-            let year = captures.at(1).unwrap().parse::<i32>().unwrap();
-            let month = captures.at(2).unwrap().parse::<u32>().unwrap();
-            let day = captures.at(3).unwrap().parse::<u32>().unwrap();
-            latest_date = Some(Local.ymd(year, month, day));
-            latest_datetime = None;
-            latest_activity = None;
-        }
+            if date_re.is_match(&line) {
+                let captures = date_re.captures(&line).unwrap();
+                let year = captures.at(1).unwrap().parse::<i32>().unwrap();
+                let month = captures.at(2).unwrap().parse::<u32>().unwrap();
+                let day = captures.at(3).unwrap().parse::<u32>().unwrap();
+                latest_date = Some(Local.ymd(year, month, day));
+                latest_datetime = None;
+                latest_activity = None;
+            }
 
-        if time_activity_re.is_match(&line) && latest_date != None {
-            let captures = time_activity_re.captures(&line).unwrap();
-            let hour = captures.at(1).unwrap().parse::<u32>().unwrap();
-            let minute = captures.at(2).unwrap().parse::<u32>().unwrap();
-            let activity = captures.at(3).unwrap();
+            if time_activity_re.is_match(&line) && latest_date != None {
+                let captures = time_activity_re.captures(&line).unwrap();
+                let hour = captures.at(1).unwrap().parse::<u32>().unwrap();
+                let minute = captures.at(2).unwrap().parse::<u32>().unwrap();
+                let activity = captures.at(3).unwrap();
 
-            latest_datetime = Some(latest_date.unwrap().and_hms(hour, minute, 0));
+                latest_datetime = Some(latest_date.unwrap().and_hms(hour, minute, 0));
 
-            latest_activity = if activity.len() > 0 { 
-                // TODO: if latest_activity already constains a string, clear it and reuse it
-                // as per: https://stackoverflow.com/questions/33781625/how-to-allocate-a-string-before-you-know-how-big-it-needs-to-be
-                Some(activity.to_string()) 
-            } else { 
-                None 
-            };
+                latest_activity = if activity.len() > 0 { 
+                    // TODO: if latest_activity already constains a string, clear it and reuse it
+                    // as per: https://stackoverflow.com/questions/33781625/how-to-allocate-a-string-before-you-know-how-big-it-needs-to-be
+                    Some(activity.to_string()) 
+                } else { 
+                    None 
+                };
 
-            println!("time activity: {} |{}|", latest_datetime.unwrap(), activity);
+                println!("time activity: {} |{}|", latest_datetime.unwrap(), activity);
+            }
         }
     }
 
-    // FIXME: I have to open a seconds file descriptor to the same file, in order to be able to write to it
-    let mut out = OpenOptions::new()
-               .read(true)
-               .write(true)
-               .create(true)
-               .open(filename)
-               .unwrap();
-
-    out.seek(End(0));
+    file.seek(End(0));
 
     let now = Local::now();
     if latest_date == None 
@@ -100,21 +97,21 @@ fn main() {
         || latest_date.unwrap().month() != now.month()
         || latest_date.unwrap().day() != now.day() {
        if (latest_date != None) { // not an empy file, as far as tt is concerned
-           out.write_all(b"\n\n");
+           file.write_all(b"\n\n");
        }
-       out.write_all(format!("{}\n", now.format("%Y-%m-%d")).as_bytes());
-       out.write_all(b"\n");
+       file.write_all(format!("{}\n", now.format("%Y-%m-%d")).as_bytes());
+       file.write_all(b"\n");
     }
 
     let activity = env::args().skip(1).join(" ");
     if (activity.len() > 0) {
-        out.write_all(format!("{} {}\n", now.format("%H:%M"), activity).as_bytes());
+        file.write_all(format!("{} {}\n", now.format("%H:%M"), activity).as_bytes());
     } else {
         // if there was no latest activity *and* there is no activity, then there's no point in writing a second blank line with just a time
         if latest_activity == None { 
             return;
         }
-        out.write_all(format!("{}\n", now.format("%H:%M")).as_bytes());
+        file.write_all(format!("{}\n", now.format("%H:%M")).as_bytes());
     }
 
     // FIXME: we're just relying on the program exit to close the two file descriptors (which point at the same file).
