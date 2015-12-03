@@ -22,3 +22,10 @@
 12:44 fixing #3
 13:02
 13:07 #5 close the file properly
+13:10 #4 hashtag reporting
+13:12
+
+
+2015-12-03
+
+12:43 improved comments

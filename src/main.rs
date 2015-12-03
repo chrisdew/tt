@@ -29,8 +29,15 @@ use itertools::Itertools;
 // FIXME: This is my first Rust program, so please forgive the current lack of error handling.
 // I just wanted to get something which compiled and ran *on my machine*.
 // It probably won't compile or run on your box and you won't be told the reason when it panics.
-// It also still has a half-dozen warning, which I don't yet understand.
-// But it does *work*.  (On my machine.)
+// It also still has a half-dozen warnings, which I don't yet understand.
+// But it does *work* (on my machine).
+//
+// You need rust to build it: https://www.rust-lang.org/downloads.html
+// Build it with: cargo build
+//
+// Run it with: target/debug/tt <activity description>
+
+// TODO: refactor, the whole program is one function
 fn main() {
     let filename = "tt.txt";
 
@@ -45,6 +52,7 @@ fn main() {
     // now read the whole file to get the latest state
     let date_re = Regex::new(r"^(\d{4})-(\d{2})-(\d{2})").unwrap();
     let time_activity_re = Regex::new(r"^(\d{2}):(\d{2})\s*(.*)").unwrap();
+    // not used yet... let time_hashtag_re = Regex::new(r"^(\d{2}):(\d{2}).*(#[^-\s]*).*").unwrap();
     let mut latest_date : Option<Date<Local>> = None;
     let mut latest_datetime : Option<DateTime<Local>> = None;
     let mut latest_activity : Option<String> = None;
@@ -53,10 +61,9 @@ fn main() {
     // but regain exclusive ownership after the scope is exited
     // see: https://stackoverflow.com/questions/33831265/how-to-use-a-file-for-reading-and-writing
     { 
-        let reader = BufReader::new(&mut file);
+        let reader = BufReader::new(&mut file); // "reader" is borrowing *the* mutable reference to file, for "reader"'s lifetime
         for wrapped_line in reader.lines() {
             let line = wrapped_line.unwrap();
-            println!("line: {}", line);
 
             if date_re.is_match(&line) {
                 let captures = date_re.captures(&line).unwrap();
@@ -76,6 +83,7 @@ fn main() {
 
                 latest_datetime = Some(latest_date.unwrap().and_hms(hour, minute, 0));
 
+                // this shows use of "if" as an expression
                 latest_activity = if activity.len() > 0 { 
                     // TODO: if latest_activity already constains a string, clear it and reuse it
                     // as per: https://stackoverflow.com/questions/33781625/how-to-allocate-a-string-before-you-know-how-big-it-needs-to-be
@@ -83,8 +91,6 @@ fn main() {
                 } else { 
                     None 
                 };
-
-                println!("time activity: {} |{}|", latest_datetime.unwrap(), activity);
             }
         }
     }
@@ -96,6 +102,7 @@ fn main() {
         || latest_date.unwrap().year() != now.year()
         || latest_date.unwrap().month() != now.month()
         || latest_date.unwrap().day() != now.day() {
+       // if today isn't the same date as the latest date found in the file (or one wasn't found in the file)
        if (latest_date != None) { // not an empy file, as far as tt is concerned
            file.write_all(b"\n\n");
        }
@@ -103,7 +110,7 @@ fn main() {
        file.write_all(b"\n");
     }
 
-    let activity = env::args().skip(1).join(" ");
+    let activity = env::args().skip(1).join(" "); // use all arguments (apart from the program name) as a description of an activity
     if (activity.len() > 0) {
         file.write_all(format!("{} {}\n", now.format("%H:%M"), activity).as_bytes());
     } else {
@@ -114,5 +121,5 @@ fn main() {
         file.write_all(format!("{}\n", now.format("%H:%M")).as_bytes());
     }
 
-    // "file" is automatically closed as it goes out of scope at program end - very neat
+    // "file" is automatically flushed and closed as it goes out of scope - very neat
 }
